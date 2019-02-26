@@ -1,15 +1,11 @@
 #!/bin/bash
 
-TMUX_CONF_URL=https://github.com/tlanyan/scripts/blob/master/files/tmux.conf
-VIM_CONF_URL=https://github.com/tlanyan/scripts/blob/master/files/vim.tar.gz
-BASH_CONF_URL=https://github.com/tlanyan/scripts/blob/master/files/bashrc
+TMUX_CONF_URL=https://github.com/tlanyan/scripts/raw/master/files/tmux.conf
+VIM_CONF_URL=https://github.com/tlanyan/scripts/raw/master/files/vim.tar.gz
+BASH_CONF_URL=https://github.com/tlanyan/scripts/raw/master/files/bashrc
 
 function checkSystem()
 {
-    result=$(id | awk '{print $1}')
-    if [ $result != "uid=0(root)" ]; then
-        sudo -i
-    fi
     result=$(id | awk '{print $1}')
     if [ $result != "uid=0(root)" ]; then
         echo "action must be carried out by root!"
@@ -20,8 +16,6 @@ function checkSystem()
         echo false
         return
     fi
-    echo -n "system version :  "
-    cat /etc/centos-release
 
     result=`cat /etc/centos-release|grep "CentOS Linux release 7"`
     if [ "$result" = "" ]; then
@@ -39,9 +33,9 @@ function updateSystem()
 function installMustHaveApps()
 {
     # must have app list: https://tlanyan.me/must-have-apps/
-    yum install -y telnet curl wget dstat rsync zip unzip git dos2unix htop python36-pip python36-devel iftop
+    yum install -y telnet curl wget dstat vim rsync zip unzip gzip gunzip git dos2unix htop python36-pip python36-devel iftop gcc
     yum remove -y python34
-    pip3 install --upgrade pip
+    pip3.6 install --upgrade pip
     pip3 install thefuck
     eval $(thefuck --alias)
     echo 'eval $(thefuck --alias)' >> ~/.bashrc
@@ -66,10 +60,6 @@ function installZsh()
 {
     yum install -y zsh
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
-    chsh -s /bin/zsh
-
-    echo 'ZSH_THEME="agnoster"' >> ~/.zshrc
-    echo 'source ~/.bashrc' >> ~/.zshrc
 }
 
 function installTmux()
@@ -89,10 +79,12 @@ function installVim()
 }
 
 result=$(checkSystem)
-if [ $result = "false" ]; then
+if [ "$result" != "true" ]; then
     echo "scripts only tested on centos 7!"
     exit 1
 fi
+echo -n "system version :  "
+cat /etc/centos-release
 
 updateSystem
 

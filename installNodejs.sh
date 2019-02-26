@@ -6,10 +6,6 @@ function checkSystem()
 {
     result=$(id | awk '{print $1}')
     if [ $result != "uid=0(root)" ]; then
-        sudo -i
-    fi
-    result=$(id | awk '{print $1}')
-    if [ $result != "uid=0(root)" ]; then
         echo "action must be carried out by root!"
         exit 1
     fi
@@ -38,9 +34,12 @@ function installNodeJS()
 }
 
 result=$(checkSystem)
-if [ $result = "false" ]; then
+if [ "$result" != "true" ]; then
     echo "scripts only tested on centos 7!"
     exit 1
 fi
+
+echo -n "system version :  "
+cat /etc/centos-release
 
 installNodeJS
