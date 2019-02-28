@@ -33,7 +33,7 @@ function updateSystem()
 function installMustHaveApps()
 {
     # must have app list: https://tlanyan.me/must-have-apps/
-    yum install -y telnet curl wget dstat vim rsync zip unzip gzip gunzip git dos2unix htop python36-pip python36-devel iftop gcc
+    yum install -y telnet curl wget dstat rsync zip unzip gzip gunzip git dos2unix htop python36-pip python36-devel iftop gcc
     yum remove -y python34
     pip3.6 install --upgrade pip
     pip3 install thefuck
@@ -92,10 +92,8 @@ installMustHaveApps
 
 installBBR
 
-installZsh
-
 installTmux
 
 installVim
 
-reboot
+installZsh
