@@ -229,7 +229,6 @@ printCount(array_slice($allUA, 0, $num));
 echo "-------------------", PHP_EOL;
 
 $os = statOS($allUA);
-
 echo PHP_EOL, "os count:", PHP_EOL;
 printCount($os);
 

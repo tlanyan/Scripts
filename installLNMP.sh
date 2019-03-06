@@ -14,8 +14,6 @@ function checkSystem()
         echo false
         return
     fi
-    echo -n "system version :  "
-    cat /etc/centos-release
     
     result=`cat /etc/centos-release|grep "CentOS Linux release 7"`
     if [ "$result" = "" ]; then
