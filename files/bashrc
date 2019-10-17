@@ -206,3 +206,7 @@ export GIT_MERGE_AUTOEDIT=NO
 alias tmux='tmux -2'
 
 export HISTTIMEFORMAT="%F %T "
+
+export EDITOR=vim
+
+alias get_kernel="egrep ^menuentry /etc/grub2.cfg | cut -f 2 -d \'"
