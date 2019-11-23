@@ -51,7 +51,14 @@ function installComposer()
 
 function installMariaDB()
 {
-    yum install -y nginx mariadb mariadb-server
+    echo '# MariaDB 10.4 CentOS repository list - created 2019-11-23 15:00 UTC
+# http://downloads.mariadb.org/mariadb/repositories/
+[mariadb]
+name = MariaDB
+baseurl = http://yum.mariadb.org/10.4/centos7-amd64
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgcheck=1' >> /etc/yum.repos.d/mariadb.repo
+    yum install -y MariaDB-server MariaDB-client
     systemctl enable mariadb.service
 }
 
@@ -70,6 +77,7 @@ fi
 echo -n "system version :  "
 cat /etc/centos-release
 
+yum update -y
 installNginx
 
 installPHP

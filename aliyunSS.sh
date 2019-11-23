@@ -53,9 +53,22 @@ function installSS()
 function uninstallYD()
 {
     echo 卸载云盾...
-    wget http://update.aegis.aliyun.com/download/uninstall.sh
-    chmod a+x uninstall.sh
-    ./uninstall.sh
+    wget http://update.aegis.aliyun.com/download/uninstall.sh && chmod +x uninstall.sh &&./uninstall.sh
+    wget http://update.aegis.aliyun.com/download/quartz_uninstall.sh && chmod +x quartz_uninstall.sh && ./quartz_uninstall.sh
+    sudo rm -r /usr/local/aegis
+    sudo rm /usr/sbin/aliyun-service
+    sudo rm /lib/systemd/system/aliyun.service
+    if [ -e /usr/local/cloudmonitor/wrapper ]; then
+        /usr/local/cloudmonitor/wrapper/bin/cloudmonitor.sh stop
+        /usr/local/cloudmonitor/wrapper/bin/cloudmonitor.sh remove
+    else
+        export ARCH=amd64
+        /usr/local/cloudmonitor/CmsGoAgent.linux-${ARCH} uninstall
+        /usr/local/cloudmonitor/CmsGoAgent.linux-${ARCH} stop
+        /usr/local/cloudmonitor/CmsGoAgent.linux-${ARCH} stop && \
+        /usr/local/cloudmonitor/CmsGoAgent.linux-${ARCH} uninstall
+    fi
+    rm -rf /usr/local/cloudmonitor
 }
 
 function showTip()
@@ -85,6 +98,7 @@ fi
 echo -n "系统版本:  "
 cat /etc/centos-release
 
+yum update -y
 installBBR
 
 installSS
