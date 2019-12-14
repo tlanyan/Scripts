@@ -25,12 +25,17 @@ function checkSystem()
 function installSS()
 {
     yum update -y
+    yum install -y epel-release
     wget -O /etc/yum.repos.d/librehat-shadowsocks-epel-7.repo 'https://copr.fedorainfracloud.org/coprs/librehat/shadowsocks/repo/epel-7/librehat-shadowsocks-epel-7.repo'
     yum install -y shadowsocks-libev
-     echo 'alias startSS="nohup ss-server -c /etc/shadowsocks-libev/config.json > /dev/null 2>&1 &"' >> ~/.bashrc
-     echo 'alias stopSS="pkill ss-server"' >> ~/.bashrc
-     systemctl disable firewalld
-     systemctl stop firewalld
+    systemctl disable firewalld
+    systemctl stop firewalld
+    if [ -s /etc/selinux/config ] && grep 'SELINUX=enforcing' /etc/selinux/config; then
+        sed -i 's/SELINUX=enforcing/SELINUX=permissive/g' /etc/selinux/config >> /dev/null 2>&1
+        setenforce 0
+    fi
+    systemctl enable shadowsocks-libev
+    systemctl start shadowsocks-libev
 }
 
 function installBBR()
@@ -55,14 +60,13 @@ function installBBR()
 function showTip()
 {
     echo ============================================
-    echo               安装成功！                  
-    echo  SS配置文件：/etc/shadowsocks-libev/config.json，请按照自己需要进行修改
+    echo "              安装成功！                  "
+    echo ""
+    echo " SS配置文件：/etc/shadowsocks-libev/config.json，请按照自己需要进行修改"
     echo   
-    echo  你可以使用 startSS 命令启动SS服务，stopSS 命令可以停止SS服务            
+    echo " 如果连接不成功，请注意查看安全组/防火墙是否已放行端口"
     echo  
-    echo  如果连接不成功，请注意查看安全组/防火墙是否已放行端口
-    echo  
-    echo  为使BBR模块生效，系统将在30秒后重启
+    echo " 为使BBR模块生效，系统将在30秒后重启"
     echo ============================================
 
     sleep 30

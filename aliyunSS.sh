@@ -44,6 +44,7 @@ function installBBR()
 function installSS()
 {
     echo 安装SS...
+    yum install -y epel-release
     wget -O /etc/yum.repos.d/librehat-shadowsocks-epel-7.repo 'https://copr.fedorainfracloud.org/coprs/librehat/shadowsocks/repo/epel-7/librehat-shadowsocks-epel-7.repo'
     yum install -y shadowsocks-libev
      echo 'alias startSS="nohup ss-server -c /etc/shadowsocks-libev/config.json > /dev/null 2>&1 &"' >> ~/.bashrc
