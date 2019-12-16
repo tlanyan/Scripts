@@ -24,18 +24,22 @@ function checkSystem()
 
 function installSS()
 {
-    yum update -y
     yum install -y epel-release
     wget -O /etc/yum.repos.d/librehat-shadowsocks-epel-7.repo 'https://copr.fedorainfracloud.org/coprs/librehat/shadowsocks/repo/epel-7/librehat-shadowsocks-epel-7.repo'
-    yum install -y shadowsocks-libev
-    systemctl disable firewalld
-    systemctl stop firewalld
+    yum install -y shadowsocks-libev nginx
+    systemctl status firewalld > /dev/null 2>&1
+    if [ $? -eq 0 ];then
+        firewall-cmd --permanent --add-port=${port}/tcp
+        firewall-cmd --permanent --add-port=${port}/udp
+        firewall-cmd --permanent --add-service=http
+        firewall-cmd --reload
+    fi
     if [ -s /etc/selinux/config ] && grep 'SELINUX=enforcing' /etc/selinux/config; then
         sed -i 's/SELINUX=enforcing/SELINUX=permissive/g' /etc/selinux/config >> /dev/null 2>&1
         setenforce 0
     fi
-    systemctl enable shadowsocks-libev
-    systemctl start shadowsocks-libev
+    systemctl enable shadowsocks-libev nginx
+    systemctl start shadowsocks-libev nginx
 }
 
 function installBBR()
@@ -63,6 +67,8 @@ function showTip()
     echo "              安装成功！                  "
     echo ""
     echo " SS配置文件：/etc/shadowsocks-libev/config.json，请按照自己需要进行修改"
+    echo ""
+    echo " systemctl start shadowsocks-libev启动程序,systemctl stop shadowsocks-libev停止程序"
     echo   
     echo " 如果连接不成功，请注意查看安全组/防火墙是否已放行端口"
     echo  
