@@ -33,9 +33,8 @@ function updateSystem()
 function installMustHaveApps()
 {
     # must have app list: https://tlanyan.me/must-have-apps/
-    yum install -y telnet curl wget dstat rsync zip unzip gzip gunzip git dos2unix htop python36-pip python36-devel iftop gcc
-    yum remove -y python34
-    pip3.6 install --upgrade pip
+    yum install -y telnet curl wget dstat rsync zip unzip gzip gunzip git dos2unix htop python3-pip python3-devel iftop gcc
+    pip3 install --upgrade pip
     pip3 install thefuck
     eval $(thefuck --alias)
     echo 'eval $(thefuck --alias)' >> ~/.bashrc
