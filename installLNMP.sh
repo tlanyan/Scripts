@@ -36,7 +36,9 @@ function installPHP()
     rm -rf /etc/yum.repos.d/remi-php54.repo
     rm -rf /etc/yum.repos.d/remi-php70.repo
     rm -rf /etc/yum.repos.d/remi-php71.repo
-	sed -i '0,/enabled=0/{s/enabled=0/enabled=1/}' /etc/yum.repos.d/remi-php72.repo
+    rm -rf /etc/yum.repos.d/remi-php72.repo
+    rm -rf /etc/yum.repos.d/remi-php73.repo
+	sed -i '0,/enabled=0/{s/enabled=0/enabled=1/}' /etc/yum.repos.d/remi-php74.repo
     yum install -y php-cli php-fpm php-gd php-mbstring php-mysqlnd php-pdo php-opcache php-xml php-pecl-zip
     systemctl enable php-fpm.service
 }
