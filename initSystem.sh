@@ -33,12 +33,12 @@ function updateSystem()
 function installMustHaveApps()
 {
     # must have app list: https://tlanyan.me/must-have-apps/
-    yum install -y telnet curl wget dstat rsync zip unzip gzip gunzip git dos2unix htop python3-pip python3-devel iftop gcc
+    yum install -y telnet curl wget dstat rsync zip unzip gzip gunzip dos2unix htop python3-pip python3-devel iftop gcc iptraf
     pip3 install --upgrade pip
-    #pip3 install thefuck
-    #eval $(thefuck --alias)
-    #echo 'eval $(thefuck --alias)' >> ~/.bashrc
 
+    yum -y remove git*
+    yum -y install  https://centos7.iuscommunity.org/ius-release.rpm
+    yum -y install  git2u-all
     mv -f ~/.bashrc ~/.bashrc.bak
     wget -O ~/.bashrc "${BASH_CONF_URL}"
 }
