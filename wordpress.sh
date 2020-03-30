@@ -332,7 +332,7 @@ function installBBR()
     fi
     res=`hostnamectl | grep -i openvz`
     if [ "$res" != "" ]; then
-        echo openvz机器，跳过安装
+        echo "openvz,跳过安装"
         bbr=true
         return
     fi
@@ -387,6 +387,7 @@ function main()
     installMysql
     installWordPress
     installRedis
+    installBBR
 
     config
 
