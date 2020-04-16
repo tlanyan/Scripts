@@ -66,6 +66,7 @@ function preInstall()
 function installNginx()
 {
     yum install -y nginx
+    systemctl enable nginx
 }
 
 function installPHP()
