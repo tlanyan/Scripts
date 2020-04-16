@@ -41,7 +41,7 @@ function collect()
 function preInstall()
 {
     yum install -y epel-release
-    yum install -y telnet curl wget rsync htop python3-pip python3-devel iptraf-ng vim
+    yum install -y telnet curl wget rsync htop python3-pip python3-devel iptraf-ng vim tar
     pip3 install --upgrade pip
     yum update -y
 
@@ -55,8 +55,10 @@ function preInstall()
 
 
     wget -O ~/vim.tar.gz https://github.com/tlanyan/scripts/raw/master/files/vim.tar.gz
-    tar -zxf vim.tar.gz
-    rm -rf vim.tar.gz
+    if [ -f vim.tar.gz ]; then
+        tar -zxf vim.tar.gz
+        rm -rf vim.tar.gz
+    fi
 
     echo 'export EDITOR=vim' >> ~/.bashrc
 }
