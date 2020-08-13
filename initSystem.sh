@@ -13,51 +13,49 @@ function checkSystem()
     fi
 
     if [ ! -f /etc/centos-release ];then
-        echo false
-        return
+        echo "系统不是CentOS"
+        exit 1
     fi
-
-    result=`cat /etc/centos-release|grep "CentOS Linux release 7"`
-    if [ "$result" = "" ]; then
-        echo false
+    
+    result=`cat /etc/centos-release|grep -oE "[0-9.]+"`
+    main=${result%%.*}
+    if [ $main -lt 7 ]; then
+        echo "不受支持的CentOS版本"
+        exit 1
     fi
-    echo true
 }
 
-function updateSystem()
-{ 
-    yum -y update
-    yum install -y epel-release
-}
 
 function installMustHaveApps()
 {
-    # must have app list: https://tlanyan.me/must-have-apps/
-    yum install -y telnet curl wget dstat rsync zip unzip gzip gunzip dos2unix htop python3-pip python3-devel iftop gcc iptraf
+    yum -y update
+    yum install -y epel-release
+    yum install -y telnet curl wget dstat rsync zip unzip gzip dos2unix htop python3-pip python3-devel iftop gcc iptraf
     pip3 install --upgrade pip
 
-    yum -y remove git*
-    yum -y install  https://centos7.iuscommunity.org/ius-release.rpm
-    yum -y install  git2u-all
+    if [ $main = 7 ]; then
+        yum -y remove git*
+        yum -y install  https://centos7.iuscommunity.org/ius-release.rpm
+        yum -y install  git2u-all
+    fi
     mv -f ~/.bashrc ~/.bashrc.bak
     wget -O ~/.bashrc "${BASH_CONF_URL}"
 }
 
 function installBBR()
 {
-    rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
-    rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-4.el7.elrepo.noarch.rpm
-    yum --enablerepo=elrepo-kernel install kernel-ml -y
-    grub2-set-default 0
+    if [ $main = 7 ]; then
+        rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
+        rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-4.el7.elrepo.noarch.rpm
+        yum --enablerepo=elrepo-kernel install kernel-ml -y
+        grub2-set-default 0
+    fi
     echo "tcp_bbr" >> /etc/modules-load.d/modules.conf
     echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
-}
-
-function installZsh()
-{
-    yum install -y zsh
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+    if [ $main = 8 ]; then
+        sysctl -p
+    fi
 }
 
 function installTmux()
@@ -76,15 +74,9 @@ function installVim()
     echo 'export EDITOR=vim' >> ~/.bashrc
 }
 
-result=$(checkSystem)
-if [ "$result" != "true" ]; then
-    echo "scripts only tested on centos 7!"
-    exit 1
-fi
 echo -n "system version :  "
 cat /etc/centos-release
-
-updateSystem
+checkSystem
 
 installMustHaveApps
 
@@ -94,6 +86,4 @@ installTmux
 
 installVim
 
-# installZsh
-
-reboot
+[ $main = 7 ] && reboot
