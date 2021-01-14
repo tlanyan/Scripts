@@ -3,156 +3,189 @@
 # Author: tlanyan
 # link: https://tlanyan.me
 
-red='\033[0;31m'
-plain='\033[0m'
+RED="\033[31m"      # Error message
+GREEN="\033[32m"    # Success message
+YELLOW="\033[33m"   # Warning message
+BLUE="\033[36m"     # Info message
+PLAIN='\033[0m'
 
-function checkSystem()
-{
-    result=$(id | awk '{print $1}')
-    if [ $result != "uid=0(root)" ]; then
-        echo "请以root身份执行该脚本"
+colorEcho() {
+    echo -e "${1}${@:2}${PLAIN}"
+}
+
+checkSystem() {
+    uid=$(id -u)
+    if [[ $uid -ne 0 ]]; then
+        colorEcho $RED " 请以root身份执行该脚本"
         exit 1
     fi
 
-    if [ ! -f /etc/centos-release ];then
-        echo "系统不是CentOS"
-        exit 1
+    res=$(command -v yum)
+    if [[ "$res" = "" ]]; then
+        res=$(command -v apt)
+        if [[ "$res" = "" ]]; then
+            colorEcho $RED " 不受支持的Linux系统"
+            exit 1
+        fi
+        PMT="apt"
+        CMD_INSTALL="apt install -y "
+        CMD_REMOVE="apt remove -y "
+        CMD_UPGRADE="apt update; apt upgrade -y; apt autoremove -y"
+        PHP_SERVICE="php7.4-fpm"
+        PHP_CONFIG_FILE="/etc/php/7.4/fpm/php.ini"
+        PHP_POOL_FILE="/etc/php/7.4/fpm/pool.d/www.conf"
+    else
+        PMT="yum"
+        CMD_INSTALL="yum install -y "
+        CMD_REMOVE="yum remove -y "
+        CMD_UPGRADE="yum update -y"
+        PHP_SERVICE="php-fpm"
+        PHP_CONFIG_FILE="/etc/php.ini"
+        PHP_POOL_FILE="/etc/php-fpm.d/www.conf"
+        result=`grep -oE "[0-9.]+" /etc/centos-release`
+        MAIN=${result%%.*}
     fi
-    
-    result=`cat /etc/centos-release|grep -oE "[0-9.]+"`
-    main=${result%%.*}
-    if [ $main -lt 7 ]; then
-        echo "不受支持的CentOS版本"
+    res=$(command -v systemctl)
+    if [[ "$res" = "" ]]; then
+        colorEcho $RED " 系统版本过低，请升级到最新版本"
         exit 1
     fi
 }
 
-function collect()
-{
+collect() {
+    read -p " 运行该脚本可能会导致数据库信息丢失，是否继续？[y/n]" answer
+    [[ "$answer" != "y" && "$answer" != "Y" ]] && exit 0
+
     while true
     do
-        read -p "请输入您的域名：" domain
-        if [ ! -z "$domain" ]; then
+        read -p " 请输入您的域名：" DOMAIN
+        if [[ ! -z "$DOMAIN" ]]; then
             break
         fi
     done
 }
 
-function preInstall()
-{
-    yum install -y epel-release
-    yum install -y telnet curl wget rsync htop python3-pip python3-devel iptraf-ng vim tar
-    pip3 install --upgrade pip
-    yum update -y
+preInstall() {
+    $PMT clean all
+    [[ "$PMT" = "apt" ]] && $PMT update
 
-    if [ $main -eq 7 ]; then
-        yum -y remove git*
-        yum -y install  https://centos7.iuscommunity.org/ius-release.rpm
-        yum -y install  git2u-all
-    else
-        yum install -y git
+    colorEcho $BLUE " 安装必要软件"
+    if [[ "$PMT" = "yum" ]]; then
+        $CMD_INSTALL epel-release
     fi
-
-
-    wget -O ~/vim.tar.gz https://github.com/tlanyan/scripts/raw/master/files/vim.tar.gz
-    if [ -f vim.tar.gz ]; then
-        tar -zxf vim.tar.gz
-        rm -rf vim.tar.gz
-    fi
-
-    echo 'export EDITOR=vim' >> ~/.bashrc
+    $CMD_INSTALL wget vim unzip tar net-tools
 }
 
-function installNginx()
-{
-    yum install -y nginx
+installNginx() {
+    colorEcho $BLUE " 安装nginx..."
+    if [[ "$PMT" = "yum" ]]; then
+        $CMD_INSTALL epel-release 
+    fi
+    $CMD_INSTALL nginx
     systemctl enable nginx
 }
 
-function installPHP()
-{
-    rpm -iUh https://mirrors.tuna.tsinghua.edu.cn/remi/enterprise/remi-release-${main}.rpm
-    if [ $main -eq 7 ]; then
-	    sed -i '0,/enabled=0/{s/enabled=0/enabled=1/}' /etc/yum.repos.d/remi-php74.repo
+installPHP() {
+    [[ "$PMT" = "apt" ]] && $PMT update
+    $CMD_INSTALL curl wget ca-certificates
+    if [[ "$PMT" = "yum" ]]; then 
+        $CMD_INSTALL epel-release
+        if [[ $MAIN -eq 7 ]]; then
+            rpm -iUh https://rpms.remirepo.net/enterprise/remi-release-7.rpm
+            sed -i '0,/enabled=0/{s/enabled=0/enabled=1/}' /etc/yum.repos.d/remi-php74.repo
+        else
+            rpm -iUh https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+            sed -i '0,/enabled=0/{s/enabled=0/enabled=1/}' /etc/yum.repos.d/remi.repo
+            dnf module install -y php:remi-7.4
+        fi
+        $CMD_INSTALL php-cli php-fpm php-bcmath php-gd php-mbstring php-mysqlnd php-pdo php-opcache php-xml php-pecl-zip php-pecl-imagick
     else
-        sed -i '0,/enabled=0/{s/enabled=0/enabled=1/}' /etc/yum.repos.d/remi.repo
-        dnf module install -y php:remi-7.4
+        $CMD_INSTALL lsb-release gnupg2
+        wget -q https://packages.sury.org/php/apt.gpg -O- | apt-key add -
+        echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/php7.list
+        $PMT update
+        $CMD_INSTALL php7.4-cli php7.4-fpm php7.4-bcmath php7.4-gd php7.4-mbstring php7.4-mysql php7.4-opcache php7.4-xml php7.4-zip php7.4-json php7.4-imagick
+        #update-alternatives --set php /usr/bin/php7.4
     fi
-    yum install -y php-cli php-fpm php-bcmath php-gd php-mbstring php-mysqlnd php-pdo php-opcache php-xml php-pecl-zip
-    systemctl enable php-fpm.service
+    systemctl enable $PHP_SERVICE
 }
 
-function installMysql()
-{
-    echo "# MariaDB 10.4 CentOS repository list
+installMysql() {
+    if [[ "$PMT" = "yum" ]]; then 
+        yum remove -y MariaDB-server
+        if [ ! -f /etc/yum.repos.d/mariadb.repo ]; then
+            if [ $MAIN -eq 7 ]; then
+                echo '# MariaDB 10.5 CentOS repository list - created 2019-11-23 15:00 UTC
 # http://downloads.mariadb.org/mariadb/repositories/
 [mariadb]
 name = MariaDB
-baseurl = http://yum.mariadb.org/10.4/centos${main}-amd64
+baseurl = http://yum.mariadb.org/10.5/centos7-amd64
 gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
-gpgcheck=1" >> /etc/yum.repos.d/mariadb.repo
-    if [ $main -eq 8 ]; then
-        echo "module_hotfixes=1" >>  /etc/yum.repos.d/mariadb.repo
+gpgcheck=1' >> /etc/yum.repos.d/mariadb.repo
+            else
+                echo '# MariaDB 10.5 CentOS repository list - created 2020-03-11 16:29 UTC
+# http://downloads.mariadb.org/mariadb/repositories/
+[mariadb]
+name = MariaDB
+baseurl = http://yum.mariadb.org/10.5/centos8-amd64
+module_hotfixes=1
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgcheck=1' >>  /etc/yum.repos.d/mariadb.repo
+            fi
+        fi
+        yum install -y MariaDB-server
+    else
+        $PMT update
+        $CMD_INSTALL mariadb-server
     fi
-
-    yum install -y MariaDB-server
     systemctl enable mariadb.service
 }
 
-function installRedis()
-{
-    yum install -y redis
+installRedis() {
+    $CMD_INSTALL redis
     systemctl enable redis
 }
 
-function installWordPress()
-{
-    yum install -y wget
-    mkdir -p /var/www;
+installWordPress() {
+    mkdir -p /var/www
     wget https://cn.wordpress.org/latest-zh_CN.tar.gz
-    if [ ! -f latest-zh_CN.tar.gz ]; then
-        echo "下载WordPress失败，请稍后重试"
-        exit 1
+    if [[ ! -f latest-zh_CN.tar.gz ]]; then
+    	colorEcho $RED " 下载WordPress失败，请稍后重试"
+	    exit 1
     fi
     tar -zxf latest-zh_CN.tar.gz
-    mv wordpress /var/www/${domain}
+    rm -rf /var/www/$DOMAIN
+    mv wordpress /var/www/$DOMAIN
     rm -rf latest-zh_CN.tar.gz
 }
 
-function config()
-{
+config() {
     # config mariadb
     systemctl start mariadb
-    dbname="wordpress"
-    dbuser="wordpress"
-    dbpass=`cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1`
+    DBNAME="wordpress"
+    DBUSER="wordpress"
+    DBPASS=`cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1`
     mysql -uroot <<EOF
 DELETE FROM mysql.user WHERE User='';
-CREATE DATABASE $dbname default charset utf8mb4;
-CREATE USER ${dbuser}@'%' IDENTIFIED BY '${dbpass}';
-GRANT ALL PRIVILEGES ON ${dbname}.* to ${dbuser}@'%';
+CREATE DATABASE $DBNAME default charset utf8mb4;
+CREATE USER ${DBUSER}@'%' IDENTIFIED BY '${DBPASS}';
+GRANT ALL PRIVILEGES ON ${DBNAME}.* to ${DBUSER}@'%';
 FLUSH PRIVILEGES;
 EOF
 
     #config php
-    sed -i 's/expose_php = On/expose_php = Off/' /etc/php.ini
-    line=`cat -n /etc/php.ini | grep 'date.timezone' | tail -n1 | awk '{print $1}'`
-    sed -i "${line}a date.timezone = Asia/Shanghai" /etc/php.ini
-    sed -i 's/;opcache.revalidate_freq=2/opcache.revalidate_freq=30/' /etc/php.d/10-opcache.ini
-    if [ $main -eq 7 ]; then
-        sed -i 's/listen = 127.0.0.1:9000/listen = \/run\/php-fpm\/www.sock/' /etc/php-fpm.d/www.conf
-    fi
-    line=`cat -n /etc/php-fpm.d/www.conf | grep 'listen.mode' | tail -n1 | awk '{print $1}'`
-    sed -i "${line}a listen.mode=0666" /etc/php-fpm.d/www.conf
-    sed -i 's/php_value\[session.save_handler\] = files/php_value\[session.save_handler\] = redis/' /etc/php-fpm.d/www.conf
-    sed -i 's/php_value\[session.save_path\]    = \/var\/lib\/php\/session/php_value\[session.save_path\]    = "tcp:\/\/127.0.0.1:6379"/' /etc/php-fpm.d/www.conf
+    sed -i 's/expose_php = On/expose_php = Off/' $PHP_CONFIG_FILE
+    line=`grep 'date.timezone' $PHP_CONFIG_FILE | tail -n1 | awk '{print $1}'`
+    sed -i "${line}a date.timezone = Asia/Shanghai" $PHP_CONFIG_FILE
+    sed -i 's/php_value\[session.save_handler\] = files/php_value\[session.save_handler\] = redis/' $PHP_POOL_FILE
+    sed -i 's/php_value\[session.save_path\]    = \/var\/lib\/php\/session/php_value\[session.save_path\]    = "tcp:\/\/127.0.0.1:6379"/' $PHP_POOL_FILE
 
     # config wordpress
-    cd /var/www/$domain
+    cd /var/www/$DOMAIN
     cp wp-config-sample.php wp-config.php
-    sed -i "s/database_name_here/$dbname/g" wp-config.php
-    sed -i "s/username_here/$dbuser/g" wp-config.php
-    sed -i "s/password_here/$dbpass/g" wp-config.php
+    sed -i "s/database_name_here/$DBNAME/g" wp-config.php
+    sed -i "s/username_here/$DBUSER/g" wp-config.php
+    sed -i "s/password_here/$DBPASS/g" wp-config.php
     sed -i "s/utf8/utf8mb4/g" wp-config.php
     perl -i -pe'
   BEGIN {
@@ -162,12 +195,26 @@ EOF
   }
   s/put your unique phrase here/salt()/ge
 ' wp-config.php
-    chown -R apache:apache /var/www/$domain
+    if [[ "$PMT" = "yum" ]]; then
+        user="apache"
+        # config nginx
+        [[ $MAIN -eq 7 ]] && upstream="127.0.0.1:9000" || upstream="php-fpm"
+    else
+        user="www-data"
+        upstream="unix:/run/php/php7.4-fpm.sock"
+    fi
+    chown -R $user:$user /var/www/${DOMAIN}
 
     # config nginx
+    res=`id nginx 2>/dev/null`
+    if [[ "$?" != "0" ]]; then
+        user="www-data"
+    else
+        user="nginx"
+    fi
     mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
     cat > /etc/nginx/nginx.conf<<-EOF
-user nginx;
+user $user;
 worker_processes auto;
 error_log /var/log/nginx/error.log;
 pid /run/nginx.pid;
@@ -255,16 +302,16 @@ http {
     include /etc/nginx/conf.d/*.conf;
 }
 EOF
-    cat > /etc/nginx/conf.d/${domain}.conf<<-EOF
+    cat > /etc/nginx/conf.d/${DOMAIN}.conf<<-EOF
 server {
     listen 80;
-    server_name ${domain};
+    server_name ${DOMAIN};
     
     charset utf-8;
     
-    set \$host_path "/var/www/${domain}";
-    access_log  /var/log/nginx/${domain}.access.log  main buffer=32k flush=30s;
-    error_log /var/log/nginx/${domain}.error.log;
+    set \$host_path "/var/www/${DOMAIN}";
+    access_log  /var/log/nginx/${DOMAIN}.access.log  main buffer=32k flush=30s;
+    error_log /var/log/nginx/${DOMAIN}.error.log;
 
     root   \$host_path;
 
@@ -299,7 +346,7 @@ server {
         fastcgi_cache wordpress;
         fastcgi_cache_bypass \$skip_cache;
         fastcgi_no_cache \$skip_cache;
-        fastcgi_pass unix:/run/php-fpm/www.sock;
+        fastcgi_pass $upstream;
         include fastcgi_params;
         fastcgi_param  SCRIPT_FILENAME  \$document_root\$fastcgi_script_name;
     }
@@ -318,77 +365,116 @@ EOF
     fi
 
     # firewall
-    systemctl status firewalld > /dev/null 2>&1
-    if [ $? -eq 0 ];then
-        firewall-cmd --permanent --add-service=http
-        firewall-cmd --permanent --add-service=https
-        firewall-cmd --reload
-    fi
+    setFirewall
 
     # restart service
     systemctl restart php-fpm mariadb nginx redis
+}
+
+setFirewall() {
+    res=`which firewall-cmd 2>/dev/null`
+    if [[ $? -eq 0 ]]; then
+        systemctl status firewalld > /dev/null 2>&1
+        if [[ $? -eq 0 ]];then
+            firewall-cmd --permanent --add-service=http
+            firewall-cmd --permanent --add-service=https
+            firewall-cmd --reload
+        else
+            nl=`iptables -nL | nl | grep FORWARD | awk '{print $1}'`
+            if [[ "$nl" != "3" ]]; then
+                iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+                iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+            fi
+        fi
+    else
+        res=`which iptables 2>/dev/null`
+        if [[ $? -eq 0 ]]; then
+            nl=`iptables -nL | nl | grep FORWARD | awk '{print $1}'`
+            if [[ "$nl" != "3" ]]; then
+                iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+                iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+            fi
+        else
+            res=`which ufw 2>/dev/null`
+            if [[ $? -eq 0 ]]; then
+                res=`ufw status | grep -i inactive`
+                if [[ "$res" = "" ]]; then
+                    ufw allow http
+                    ufw allow https
+                fi
+            fi
+        fi
+    fi
 }
 
 function installBBR()
 {
     result=$(lsmod | grep bbr)
     if [ "$result" != "" ]; then
-        echo BBR模块已安装
-        bbr=true
+        colorEcho $YELLOW " BBR模块已安装"
+        INSTALL_BBR=false
         return
     fi
     res=`hostnamectl | grep -i openvz`
     if [ "$res" != "" ]; then
-        echo "openvz,跳过安装"
-        bbr=true
+        colorEcho $YELLOW " openvz机器，跳过安装"
+        INSTALL_BBR=false
         return
     fi
     
-    if [ $main -eq 8 ]; then
-        echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
-        sysctl -p
-        bbr=true
+    echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
+    echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+    sysctl -p
+    result=$(lsmod | grep bbr)
+    if [[ "$result" != "" ]]; then
+        colorEcho $GREEN " BBR模块已启用"
+        INSTALL_BBR=false
         return
     fi
 
-    echo 安装BBR模块...
-    rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
-    rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-4.el7.elrepo.noarch.rpm
-    yum --enablerepo=elrepo-kernel install kernel-ml -y
-    grub2-set-default 0
-    echo "tcp_bbr" >> /etc/modules-load.d/modules.conf
-    echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
-    bbr=false
+    colorEcho $BLUE " 安装BBR模块..."
+    if [[ "$PMT" = "yum" ]]; then
+        if [[ "$V6_PROXY" = "" ]]; then
+            rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
+            rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-4.el7.elrepo.noarch.rpm
+            $CMD_INSTALL --enablerepo=elrepo-kernel kernel-ml
+            $CMD_REMOVE kernel-3.*
+            grub2-set-default 0
+            echo "tcp_bbr" >> /etc/modules-load.d/modules.conf
+            INSTALL_BBR=true
+        fi
+    else
+        $CMD_INSTALL --install-recommends linux-generic-hwe-16.04
+        grub-set-default 0
+        echo "tcp_bbr" >> /etc/modules-load.d/modules.conf
+        INSTALL_BBR=true
+    fi
 }
 
-function output()
-{
-    echo "WordPress安装成功！"
+showInfo() {
+    echo " WordPress安装成功！"
     echo "==============================="
-    echo -e "WordPress安装路径：${red}/var/www/${domain}${plain}"
-    echo -e "WordPress数据库：${red}${dbname}${plain}"
-    echo -e "WordPress数据库用户名：${red}${dbuser}${plain}"
-    echo -e "WordPress数据库密码：${red}${dbpass}${plain}"
-    echo -e "博客访问地址：${red}http://${domain}${plain}"
+    echo -e " WordPress安装路径：${RED}/var/www/${DOMAIN}${PLAIN}"
+    echo -e " WordPress数据库：${RED}${DBNAME}${PLAIN}"
+    echo -e " WordPress数据库用户名：${RED}${DBUSER}${PLAIN}"
+    echo -e " WordPress数据库密码：${RED}${DBPASS}${PLAIN}"
+    echo -e " 博客访问地址：${RED}http://${DOMAIN}${PLAIN}"
     echo "==============================="
 
-    if [ "${bbr}" == "false" ]; then
+    if [ "${INSTALL_BBR}" == "true" ]; then
         echo  
         echo  为使BBR模块生效，系统将在30秒后重启
         echo  
-        echo -e "您可以按 ctrl + c 取消重启，稍后输入 ${red}reboot${plain} 重启系统"
+        echo -e "您可以按 ctrl + c 取消重启，稍后输入 ${RED}reboot${PLAIN} 重启系统"
         sleep 30
         reboot
     fi
 }
 
-function main()
-{
+main() {
     checkSystem
-    preInstall
     collect
+    preInstall
     installNginx
     installPHP
     installMysql
@@ -398,7 +484,7 @@ function main()
 
     config
 
-    output
+    showInfo
 }
 
 main
