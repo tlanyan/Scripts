@@ -1,13 +1,18 @@
 #!/bin/bash
 # centos7/8 WordPress一键安装脚本
 # Author: tlanyan
-# link: https://tlanyan.me
+# link: https://itlanyan.com
 
 RED="\033[31m"      # Error message
 GREEN="\033[32m"    # Success message
 YELLOW="\033[33m"   # Warning message
 BLUE="\033[36m"     # Info message
 PLAIN='\033[0m'
+
+VERSION=$1
+[[ -z $1 ]] && VERSION=8.0
+
+echo $RED "安装PHP版本：${VERSION}"
 
 colorEcho() {
     echo -e "${1}${@:2}${PLAIN}"
@@ -31,9 +36,9 @@ checkSystem() {
         CMD_INSTALL="apt install -y "
         CMD_REMOVE="apt remove -y "
         CMD_UPGRADE="apt update; apt upgrade -y; apt autoremove -y"
-        PHP_SERVICE="php7.4-fpm"
-        PHP_CONFIG_FILE="/etc/php/7.4/fpm/php.ini"
-        PHP_POOL_FILE="/etc/php/7.4/fpm/pool.d/www.conf"
+        PHP_SERVICE="php${VERSION}-fpm"
+        PHP_CONFIG_FILE="/etc/php/${VERSION}/fpm/php.ini"
+        PHP_POOL_FILE="/etc/php/${VERSION}/fpm/pool.d/www.conf"
     else
         PMT="yum"
         CMD_INSTALL="yum install -y "
@@ -96,16 +101,16 @@ installPHP() {
         else
             rpm -iUh https://rpms.remirepo.net/enterprise/remi-release-8.rpm
             sed -i '0,/enabled=0/{s/enabled=0/enabled=1/}' /etc/yum.repos.d/remi.repo
-            dnf module install -y php:remi-7.4
+            dnf module install -y php:remi-${VERSION}
         fi
-        $CMD_INSTALL php-cli php-fpm php-bcmath php-gd php-mbstring php-mysqlnd php-pdo php-opcache php-xml php-pecl-zip php-pecl-imagick
+        $CMD_INSTALL php-cli php-fpm php-bcmath php-gd php-mbstring php-mysqlnd php-pdo php-opcache php-xml php-pecl-zip php-pecl-imagick php-intl
     else
         $CMD_INSTALL lsb-release gnupg2
         wget -q https://packages.sury.org/php/apt.gpg -O- | apt-key add -
         echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/php7.list
         $PMT update
-        $CMD_INSTALL php7.4-cli php7.4-fpm php7.4-bcmath php7.4-gd php7.4-mbstring php7.4-mysql php7.4-opcache php7.4-xml php7.4-zip php7.4-json php7.4-imagick
-        #update-alternatives --set php /usr/bin/php7.4
+        $CMD_INSTALL php${VERSION}-cli php${VERSION}-fpm php${VERSION}-bcmath php${VERSION}-gd php${VERSION}-mbstring php${VERSION}-mysql php${VERSION}-opcache php${VERSION}-xml php${VERSION}-zip php${VERSION}-imagick php${VERSION}-intl
+        #update-alternatives --set php /usr/bin/php${VERSION}
     fi
     systemctl enable $PHP_SERVICE
 }
@@ -201,7 +206,7 @@ EOF
         [[ $MAIN -eq 7 ]] && upstream="127.0.0.1:9000" || upstream="php-fpm"
     else
         user="www-data"
-        upstream="unix:/run/php/php7.4-fpm.sock"
+        upstream="unix:/run/php/php${VERSION}-fpm.sock"
     fi
     chown -R $user:$user /var/www/${DOMAIN}
 

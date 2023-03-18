@@ -47,7 +47,7 @@ function installBBR()
     if [ $main = 7 ]; then
         rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
         rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-4.el7.elrepo.noarch.rpm
-        yum --enablerepo=elrepo-kernel install kernel-ml -y
+        yum --enablerepo=elrepo-kernel install kernel-lt -y
         grub2-set-default 0
     fi
     echo "tcp_bbr" >> /etc/modules-load.d/modules.conf
